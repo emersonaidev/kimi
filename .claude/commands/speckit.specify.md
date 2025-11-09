@@ -1,249 +1,192 @@
 ---
-description: Create or update the feature specification from a natural language feature description.
+description: Cria ou atualiza a especificação de uma funcionalidade a partir de uma descrição em linguagem natural.
 ---
 
-## User Input
+
+## Entrada do Utilizador
 
 ```text
 $ARGUMENTS
 ```
 
-You **MUST** consider the user input before proceeding (if not empty).
+Deves **OBRIGATORIAMENTE** considerar o texto introduzido pelo utilizador antes de prosseguir (caso não esteja vazio).
 
-## Outline
+## Esboço Geral
 
-The text the user typed after `/speckit.specify` in the triggering message **is** the feature description. Assume you always have it available in this conversation even if `$ARGUMENTS` appears literally below. Do not ask the user to repeat it unless they provided an empty command.
+O texto que o utilizador escreve depois de `/speckit.specify` na mensagem que desencadeia este comando **é** a descrição da funcionalidade.  
+Assume que tens sempre esse texto disponível nesta conversa, mesmo que `$ARGUMENTS` apareça literalmente abaixo.  
+Não peças ao utilizador para repetir, a menos que tenha enviado o comando vazio.
 
-Given that feature description, do this:
+Com base nessa descrição da funcionalidade, faz o seguinte:
 
-1. **Generate a concise short name** (2-4 words) for the branch:
-   - Analyze the feature description and extract the most meaningful keywords
-   - Create a 2-4 word short name that captures the essence of the feature
-   - Use action-noun format when possible (e.g., "add-user-auth", "fix-payment-bug")
-   - Preserve technical terms and acronyms (OAuth2, API, JWT, etc.)
-   - Keep it concise but descriptive enough to understand the feature at a glance
-   - Examples:
-     - "I want to add user authentication" → "user-auth"
-     - "Implement OAuth2 integration for the API" → "oauth2-api-integration"
-     - "Create a dashboard for analytics" → "analytics-dashboard"
-     - "Fix payment processing timeout bug" → "fix-payment-timeout"
+1. **Gera um nome curto e conciso** (2-4 palavras) para a branch:
+   - Analisa a descrição e extrai as palavras-chave mais relevantes.
+   - Cria um nome curto que capture a essência da funcionalidade.
+   - Usa formato *ação-substantivo* quando possível (ex.: `adicionar-autenticacao-usuario`).
+   - Mantém termos técnicos e acrónimos (OAuth2, API, JWT, etc.).
+   - Mantém conciso mas suficientemente descritivo para entender a feature de relance.
+   - Exemplos:
+     - “Quero adicionar autenticação de utilizador” → `user-auth`
+     - “Implementar integração OAuth2 na API” → `oauth2-api-integration`
+     - “Criar dashboard de analytics” → `analytics-dashboard`
+     - “Corrigir bug de timeout no pagamento” → `fix-payment-timeout`
 
-2. **Check for existing branches before creating new one**:
+2. **Verifica se já existem branches antes de criar uma nova**:
    
-   a. First, fetch all remote branches to ensure we have the latest information:
+   a. Primeiro, obtém todas as branches remotas para garantir informação atualizada:
       ```bash
       git fetch --all --prune
       ```
-   
-   b. Find the highest feature number across all sources for the short-name:
-      - Remote branches: `git ls-remote --heads origin | grep -E 'refs/heads/[0-9]+-<short-name>$'`
-      - Local branches: `git branch | grep -E '^[* ]*[0-9]+-<short-name>$'`
-      - Specs directories: Check for directories matching `specs/[0-9]+-<short-name>`
-   
-   c. Determine the next available number:
-      - Extract all numbers from all three sources
-      - Find the highest number N
-      - Use N+1 for the new branch number
-   
-   d. Run the script `.specify/scripts/bash/create-new-feature.sh --json "$ARGUMENTS"` with the calculated number and short-name:
-      - Pass `--number N+1` and `--short-name "your-short-name"` along with the feature description
-      - Bash example: `.specify/scripts/bash/create-new-feature.sh --json "$ARGUMENTS" --json --number 5 --short-name "user-auth" "Add user authentication"`
-      - PowerShell example: `.specify/scripts/bash/create-new-feature.sh --json "$ARGUMENTS" -Json -Number 5 -ShortName "user-auth" "Add user authentication"`
-   
-   **IMPORTANT**:
-   - Check all three sources (remote branches, local branches, specs directories) to find the highest number
-   - Only match branches/directories with the exact short-name pattern
-   - If no existing branches/directories found with this short-name, start with number 1
-   - You must only ever run this script once per feature
-   - The JSON is provided in the terminal as output - always refer to it to get the actual content you're looking for
-   - The JSON output will contain BRANCH_NAME and SPEC_FILE paths
-   - For single quotes in args like "I'm Groot", use escape syntax: e.g 'I'\''m Groot' (or double-quote if possible: "I'm Groot")
 
-3. Load `.specify/templates/spec-template.md` to understand required sections.
+   b. Procura o número mais alto de feature com o mesmo short-name:
+      - Branches remotas: `git ls-remote --heads origin | grep -E 'refs/heads/[0-9]+-<short-name>$'`
+      - Branches locais: `git branch | grep -E '^[* ]*[0-9]+-<short-name>$'`
+      - Diretórios de specs: procura `specs/[0-9]+-<short-name>`
 
-4. Follow this execution flow:
+   c. Determina o próximo número disponível:
+      - Extrai todos os números das três origens.
+      - Encontra o número mais alto N.
+      - Usa N+1 para a nova branch.
 
-    1. Parse user description from Input
-       If empty: ERROR "No feature description provided"
-    2. Extract key concepts from description
-       Identify: actors, actions, data, constraints
-    3. For unclear aspects:
-       - Make informed guesses based on context and industry standards
-       - Only mark with [NEEDS CLARIFICATION: specific question] if:
-         - The choice significantly impacts feature scope or user experience
-         - Multiple reasonable interpretations exist with different implications
-         - No reasonable default exists
-       - **LIMIT: Maximum 3 [NEEDS CLARIFICATION] markers total**
-       - Prioritize clarifications by impact: scope > security/privacy > user experience > technical details
-    4. Fill User Scenarios & Testing section
-       If no clear user flow: ERROR "Cannot determine user scenarios"
-    5. Generate Functional Requirements
-       Each requirement must be testable
-       Use reasonable defaults for unspecified details (document assumptions in Assumptions section)
-    6. Define Success Criteria
-       Create measurable, technology-agnostic outcomes
-       Include both quantitative metrics (time, performance, volume) and qualitative measures (user satisfaction, task completion)
-       Each criterion must be verifiable without implementation details
-    7. Identify Key Entities (if data involved)
-    8. Return: SUCCESS (spec ready for planning)
+   d. Executa o script `.specify/scripts/bash/create-new-feature.sh --json "$ARGUMENTS"` com o número e nome curto calculados:
+      - Passa `--number N+1` e `--short-name "your-short-name"` juntamente com a descrição.
+      - Exemplo Bash:
+        ```bash
+        .specify/scripts/bash/create-new-feature.sh --json "$ARGUMENTS" --json --number 5 --short-name "user-auth" "Add user authentication"
+        ```
+      - Exemplo PowerShell:
+        ```bash
+        .specify/scripts/bash/create-new-feature.sh --json "$ARGUMENTS" -Json -Number 5 -ShortName "user-auth" "Add user authentication"
+        ```
 
-5. Write the specification to SPEC_FILE using the template structure, replacing placeholders with concrete details derived from the feature description (arguments) while preserving section order and headings.
+   **IMPORTANTE**:
+   - Verifica as três origens (remota, local e specs).
+   - Só corresponde branches/diretórios com o nome exato.
+   - Se não houver nenhum existente, começa em número 1.
+   - Este script só deve ser executado **uma vez por funcionalidade**.
+   - O output JSON é devolvido no terminal; consulta-o para saber os caminhos criados (`BRANCH_NAME` e `SPEC_FILE`).
+   - Para aspas simples em argumentos tipo “I'm Groot”, usa `'''` (ou aspas duplas).
 
-6. **Specification Quality Validation**: After writing the initial spec, validate it against quality criteria:
+3. Carrega `.specify/templates/spec-template.md` para conhecer as secções obrigatórias.
 
-   a. **Create Spec Quality Checklist**: Generate a checklist file at `FEATURE_DIR/checklists/requirements.md` using the checklist template structure with these validation items:
+4. Segue este fluxo de execução:
+
+    1. Lê a descrição do utilizador.  
+       Se estiver vazia → ERRO “Nenhuma descrição de funcionalidade fornecida”.
+    2. Extrai conceitos-chave: atores, ações, dados, restrições.
+    3. Para aspetos pouco claros:
+       - Faz suposições razoáveis com base no contexto e padrões da indústria.
+       - Só marca com `[NEEDS CLARIFICATION: questão específica]` se:
+         - A decisão afetar significativamente o âmbito ou a experiência do utilizador.
+         - Existirem várias interpretações válidas com implicações diferentes.
+         - Não houver um padrão razoável.
+       - **LIMITE:** máximo 3 marcadores `[NEEDS CLARIFICATION]`.
+       - Prioriza por impacto: âmbito > segurança/privacidade > experiência do utilizador > detalhe técnico.
+    4. Preenche a secção **Cenários de Utilizador e Testes**.  
+       Se não houver fluxo claro → ERRO “Não é possível determinar cenários de utilizador”.
+    5. Gera **Requisitos Funcionais** testáveis.
+    6. Define **Critérios de Sucesso** mensuráveis, independentes da tecnologia, qualitativos e quantitativos.
+    7. Identifica **Entidades-chave** se existirem dados envolvidos.
+    8. Resultado: SUCESSO (spec pronta para planeamento).
+
+5. Escreve a especificação no ficheiro `SPEC_FILE`, usando a estrutura do template e substituindo placeholders por detalhes concretos derivados da descrição.
+
+6. **Validação da Qualidade da Especificação**:
+
+   a. **Cria Checklist de Qualidade** em `FEATURE_DIR/checklists/requirements.md` com esta estrutura:
 
       ```markdown
-      # Specification Quality Checklist: [FEATURE NAME]
+      # Checklist de Qualidade da Especificação: [NOME DA FEATURE]
       
-      **Purpose**: Validate specification completeness and quality before proceeding to planning
-      **Created**: [DATE]
-      **Feature**: [Link to spec.md]
+      **Objetivo**: validar completude e qualidade antes do planeamento  
+      **Criado em**: [DATA]  
+      **Funcionalidade**: [link para spec.md]
       
-      ## Content Quality
-      
-      - [ ] No implementation details (languages, frameworks, APIs)
-      - [ ] Focused on user value and business needs
-      - [ ] Written for non-technical stakeholders
-      - [ ] All mandatory sections completed
-      
-      ## Requirement Completeness
-      
-      - [ ] No [NEEDS CLARIFICATION] markers remain
-      - [ ] Requirements are testable and unambiguous
-      - [ ] Success criteria are measurable
-      - [ ] Success criteria are technology-agnostic (no implementation details)
-      - [ ] All acceptance scenarios are defined
-      - [ ] Edge cases are identified
-      - [ ] Scope is clearly bounded
-      - [ ] Dependencies and assumptions identified
-      
-      ## Feature Readiness
-      
-      - [ ] All functional requirements have clear acceptance criteria
-      - [ ] User scenarios cover primary flows
-      - [ ] Feature meets measurable outcomes defined in Success Criteria
-      - [ ] No implementation details leak into specification
-      
-      ## Notes
-      
-      - Items marked incomplete require spec updates before `/speckit.clarify` or `/speckit.plan`
+      ## Qualidade de Conteúdo
+      - [ ] Sem detalhes de implementação (linguagens, frameworks, APIs)
+      - [ ] Foco no valor e necessidade do utilizador/negócio
+      - [ ] Legível por stakeholders não técnicos
+      - [ ] Todas as secções obrigatórias preenchidas
+
+      ## Completude dos Requisitos
+      - [ ] Nenhum marcador [NEEDS CLARIFICATION] restante
+      - [ ] Requisitos testáveis e inequívocos
+      - [ ] Critérios de sucesso mensuráveis
+      - [ ] Critérios independentes da tecnologia
+      - [ ] Todos os cenários de aceitação definidos
+      - [ ] Casos-limite identificados
+      - [ ] Âmbito claramente delimitado
+      - [ ] Dependências e suposições identificadas
+
+      ## Prontidão da Funcionalidade
+      - [ ] Todos os requisitos têm critérios de aceitação
+      - [ ] Cenários de utilizador cobrem os fluxos principais
+      - [ ] A funcionalidade cumpre os resultados definidos nos Critérios de Sucesso
+      - [ ] Sem fugas de detalhes técnicos
+
+      ## Notas
+      - Itens incompletos exigem atualização antes de `/speckit.clarify` ou `/speckit.plan`
       ```
 
-   b. **Run Validation Check**: Review the spec against each checklist item:
-      - For each item, determine if it passes or fails
-      - Document specific issues found (quote relevant spec sections)
+   b. **Executa a verificação** comparando cada item e regista falhas.
+   c. **Se todos passarem**, avança; se falharem, corrige e revalida (máx. 3 iterações).
+   d. **Se restarem marcadores [NEEDS CLARIFICATION]**, extrai-os, apresenta perguntas formatadas em tabela e espera pelas respostas do utilizador.
 
-   c. **Handle Validation Results**:
+7. Reporta conclusão com nome da branch, caminho do ficheiro spec, resultados da checklist e prontidão para `/speckit.clarify` ou `/speckit.plan`.
 
-      - **If all items pass**: Mark checklist complete and proceed to step 6
+**NOTA:** O script cria e faz checkout da nova branch e inicializa o ficheiro antes de escrever.
 
-      - **If items fail (excluding [NEEDS CLARIFICATION])**:
-        1. List the failing items and specific issues
-        2. Update the spec to address each issue
-        3. Re-run validation until all items pass (max 3 iterations)
-        4. If still failing after 3 iterations, document remaining issues in checklist notes and warn user
+## Diretrizes Gerais
 
-      - **If [NEEDS CLARIFICATION] markers remain**:
-        1. Extract all [NEEDS CLARIFICATION: ...] markers from the spec
-        2. **LIMIT CHECK**: If more than 3 markers exist, keep only the 3 most critical (by scope/security/UX impact) and make informed guesses for the rest
-        3. For each clarification needed (max 3), present options to user in this format:
+### Diretrizes Rápidas
 
-           ```markdown
-           ## Question [N]: [Topic]
-           
-           **Context**: [Quote relevant spec section]
-           
-           **What we need to know**: [Specific question from NEEDS CLARIFICATION marker]
-           
-           **Suggested Answers**:
-           
-           | Option | Answer | Implications |
-           |--------|--------|--------------|
-           | A      | [First suggested answer] | [What this means for the feature] |
-           | B      | [Second suggested answer] | [What this means for the feature] |
-           | C      | [Third suggested answer] | [What this means for the feature] |
-           | Custom | Provide your own answer | [Explain how to provide custom input] |
-           
-           **Your choice**: _[Wait for user response]_
-           ```
+- Concentra-te no **QUE** o utilizador precisa e **PORQUÊ**.  
+- Evita o **COMO** (detalhes técnicos).  
+- Escreve para o negócio, não para programadores.  
+- Não insiras checklists dentro da spec — são geradas à parte.
 
-        4. **CRITICAL - Table Formatting**: Ensure markdown tables are properly formatted:
-           - Use consistent spacing with pipes aligned
-           - Each cell should have spaces around content: `| Content |` not `|Content|`
-           - Header separator must have at least 3 dashes: `|--------|`
-           - Test that the table renders correctly in markdown preview
-        5. Number questions sequentially (Q1, Q2, Q3 - max 3 total)
-        6. Present all questions together before waiting for responses
-        7. Wait for user to respond with their choices for all questions (e.g., "Q1: A, Q2: Custom - [details], Q3: B")
-        8. Update the spec by replacing each [NEEDS CLARIFICATION] marker with the user's selected or provided answer
-        9. Re-run validation after all clarifications are resolved
+### Requisitos de Secção
 
-   d. **Update Checklist**: After each validation iteration, update the checklist file with current pass/fail status
+- **Obrigatórias**: devem estar sempre completas.  
+- **Opcionais**: inclui só se relevantes.  
+- Se uma secção não se aplica, remove-a (não deixes “N/A”).
 
-7. Report completion with branch name, spec file path, checklist results, and readiness for the next phase (`/speckit.clarify` or `/speckit.plan`).
+### Para Geração por IA
 
-**NOTE:** The script creates and checks out the new branch and initializes the spec file before writing.
+1. Faz suposições informadas com base no contexto e padrões comuns.  
+2. Documenta suposições na secção “Assumptions”.  
+3. Máx. 3 marcadores `[NEEDS CLARIFICATION]`, apenas para decisões críticas.  
+4. Prioriza clarificações: âmbito > segurança > UX > detalhe técnico.  
+5. Pensa como tester — qualquer requisito vago deve falhar no critério “testável e inequívoco”.  
+6. Áreas comuns que exigem clarificação (só se não houver padrão razoável):  
+   - Limites da funcionalidade (casos incluídos/excluídos).  
+   - Tipos de utilizador e permissões com interpretações ambíguas.  
+   - Requisitos legais ou de conformidade.  
 
-## General Guidelines
+**Exemplos de padrões razoáveis** (não perguntes sobre estes):  
+- Retenção de dados: práticas padrão do setor.  
+- Desempenho: expectativas típicas web/mobile.  
+- Erros: mensagens amigáveis e seguras.  
+- Autenticação: sessão ou OAuth2.  
+- Integração: APIs RESTful, salvo indicação contrária.
 
-## Quick Guidelines
+### Diretrizes para Critérios de Sucesso
 
-- Focus on **WHAT** users need and **WHY**.
-- Avoid HOW to implement (no tech stack, APIs, code structure).
-- Written for business stakeholders, not developers.
-- DO NOT create any checklists that are embedded in the spec. That will be a separate command.
+Critérios de sucesso devem ser:
 
-### Section Requirements
+1. **Mensuráveis** — incluem métricas concretas.  
+2. **Independentes da tecnologia** — sem mencionar ferramentas.  
+3. **Focados no utilizador/negócio**.  
+4. **Verificáveis** — testáveis sem conhecer implementação.
 
-- **Mandatory sections**: Must be completed for every feature
-- **Optional sections**: Include only when relevant to the feature
-- When a section doesn't apply, remove it entirely (don't leave as "N/A")
+**Bons exemplos:**
+- “Os utilizadores concluem o checkout em menos de 3 minutos.”  
+- “O sistema suporta 10 000 utilizadores simultâneos.”  
+- “95 % das pesquisas devolvem resultados em menos de 1 segundo.”  
+- “A taxa de conclusão de tarefas melhora 40 %.”
 
-### For AI Generation
-
-When creating this spec from a user prompt:
-
-1. **Make informed guesses**: Use context, industry standards, and common patterns to fill gaps
-2. **Document assumptions**: Record reasonable defaults in the Assumptions section
-3. **Limit clarifications**: Maximum 3 [NEEDS CLARIFICATION] markers - use only for critical decisions that:
-   - Significantly impact feature scope or user experience
-   - Have multiple reasonable interpretations with different implications
-   - Lack any reasonable default
-4. **Prioritize clarifications**: scope > security/privacy > user experience > technical details
-5. **Think like a tester**: Every vague requirement should fail the "testable and unambiguous" checklist item
-6. **Common areas needing clarification** (only if no reasonable default exists):
-   - Feature scope and boundaries (include/exclude specific use cases)
-   - User types and permissions (if multiple conflicting interpretations possible)
-   - Security/compliance requirements (when legally/financially significant)
-
-**Examples of reasonable defaults** (don't ask about these):
-
-- Data retention: Industry-standard practices for the domain
-- Performance targets: Standard web/mobile app expectations unless specified
-- Error handling: User-friendly messages with appropriate fallbacks
-- Authentication method: Standard session-based or OAuth2 for web apps
-- Integration patterns: RESTful APIs unless specified otherwise
-
-### Success Criteria Guidelines
-
-Success criteria must be:
-
-1. **Measurable**: Include specific metrics (time, percentage, count, rate)
-2. **Technology-agnostic**: No mention of frameworks, languages, databases, or tools
-3. **User-focused**: Describe outcomes from user/business perspective, not system internals
-4. **Verifiable**: Can be tested/validated without knowing implementation details
-
-**Good examples**:
-
-- "Users can complete checkout in under 3 minutes"
-- "System supports 10,000 concurrent users"
-- "95% of searches return results in under 1 second"
-- "Task completion rate improves by 40%"
-
-**Bad examples** (implementation-focused):
-
-- "API response time is under 200ms" (too technical, use "Users see results instantly")
-- "Database can handle 1000 TPS" (implementation detail, use user-facing metric)
-- "React components render efficiently" (framework-specific)
-- "Redis cache hit rate above 80%" (technology-specific)
+**Maus exemplos:**
+- “Tempo de resposta da API < 200 ms” → demasiado técnico.  
+- “Base de dados suporta 1000 TPS.” → detalhe de implementação.  
+- “Componentes React rendem eficientemente.” → específico de framework.  
+- “Taxa de acerto do Redis acima de 80 %.” → métrica técnica.
